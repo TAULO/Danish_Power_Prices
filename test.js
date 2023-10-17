@@ -1,46 +1,53 @@
-async function getData() {
+async function getPowerPrices() {
     const date = new Date()
-    
+
+    const currDay = date.getDate()
+    const currTomorrow = new Date(date.setDate(currDay + 1)).getDate()
+    const currMonth = date.getMonth() + 1
+
     const hour = date.getHours()
-
-    const today = date.getDate()
-    const tomorrow = date.getDate() + 1
-
-    const month = date.getMonth() + 1
-
+    const today = currDay < 10 ? "0" + currDay : currDay
+    const tomorrow = currTomorrow < 10 ? "0" + currTomorrow : currTomorrow
+    const month = currMonth < 10 ? "0" + currMonth : currMonth
     const year = date.getFullYear()
 
+    console.log(`Today: ${today}\nTomorrow: ${tomorrow}\nMonth: ${month}`)
     console.log(`Data set from: ${year} ${today}-${month} / ${tomorrow}-${month}`)
 
-    const todaysDataSet = await fetch(`https://www.elprisenligenu.dk/api/v1/prices/${year}/${month}-${today}_DK1.json`)
-    const tomorrowsDataSet = await fetch(`https://www.elprisenligenu.dk/api/v1/prices/${year}/${month}-${tomorrow}_DK1.json`)
+    const [todaysDataSet, tomorrowsDataSet] = await Promise.all([
+        fetch(`https://www.elprisenligenu.dk/api/v1/prices/${year}/${month}-${today}_DK1.json`),
+        fetch(`https://www.elprisenligenu.dk/api/v1/prices/${year}/${month}-${tomorrow}_DK1.json`)
+    ]);
 
-    const todaysData = await todaysDataSet.json()
-    const tomrrowsData = await tomorrowsDataSet.json()
+    const [todaysData, tomorrowsData] = await Promise.all([
+        todaysDataSet.json(),
+        tomorrowsDataSet.json()
+    ]);
 
-    const data = todaysData.concat(tomrrowsData)
+    return todaysData
+    .concat(tomorrowsData)
+    .reduce((acc, d) => {
+        const start = new Date(d["time_start"]);
+        if (
+            (today === start.getDate() && hour < start.getHours()) ||
+            today !== start.getDate()
+        ) {
+            acc.push({
+                start,
+                end: new Date(d["time_end"]),
+                price: d["DKK_per_kWh"]
+            });
+        }
+        return acc;
+    }, []);
+}
 
-    return data.map(d => { return { start: d["time_start"], end: d["time_end"], price: d["DKK_per_kWh"] } } )
-        .filter(d => {
-            const startDate = new Date(d.start)
-            const startHour = startDate.getHours()
-            const startDay = startDate.getDate() + 1
-
-            if (startDay >= today && startHour >=  hour) {
-                return d
-            }
-        })
+async function logPowerPrices() {
+    console.log(await getPowerPrices())
 }
 
 async function findCheapest() {
-    const data = await getData()
-
-    // data.forEach(d => {
-    //     const curr = new Date(d.start).getHours() + 1
-    //     console.log(curr)
-    // })
-    console.log(data)
-    return data.sort((a, b) => a.price - b.price)[0]
+    return getPowerPrices().then(data => data.sort((a, b) => a.price - b.price)[0])
 }
 
-findCheapest().then(c => console.log(c)) 
+findCheapest().then(d => console.log(d))
