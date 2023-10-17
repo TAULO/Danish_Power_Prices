@@ -12,7 +12,7 @@ async function getPowerPrices() {
     const year = date.getFullYear()
 
     console.log(`Today: ${today}\nTomorrow: ${tomorrow}\nMonth: ${month}`)
-    console.log(`Data set from: ${year} ${today}-${month} / ${tomorrow}-${month}`)
+    console.log(`Data set from: ${year} ${today}-${month} / ${tomorrow}-${month} ${hour}-`)
 
     const [todaysDataSet, tomorrowsDataSet] = await Promise.all([
         fetch(`https://www.elprisenligenu.dk/api/v1/prices/${year}/${month}-${today}_DK1.json`),
@@ -33,8 +33,8 @@ async function getPowerPrices() {
             today !== start.getDate()
         ) {
             acc.push({
-                start,
-                end: new Date(d["time_end"]),
+                start: d["time_start"],
+                end: d["time_end"],
                 price: d["DKK_per_kWh"]
             });
         }
@@ -46,8 +46,19 @@ async function logPowerPrices() {
     console.log(await getPowerPrices())
 }
 
-async function findCheapest() {
+async function cheapest() {
     return getPowerPrices().then(data => data.sort((a, b) => a.price - b.price)[0])
 }
 
-findCheapest().then(d => console.log(d))
+async function mostExpensive() {
+    return getPowerPrices().then(data => data.sort((a, b) => b.price - a.price)[0])
+}
+// logPowerPrices()
+cheapest().then(d => {
+    const VAT = d.price * 0.25 // danish VAT = 25%
+    console.log((d.price + VAT) * 100) // øre
+})
+mostExpensive().then(d => {
+    const VAT = d.price * 0.25 // danish VAT = 25%
+    console.log((d.price + VAT) * 100) // øre
+})
